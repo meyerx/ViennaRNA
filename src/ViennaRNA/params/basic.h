@@ -170,6 +170,9 @@ struct vrna_exp_param_s {
 vrna_param_t *
 vrna_params(vrna_md_t *md);
 
+void
+vrna_params_free(vrna_param_t *param);
+
 
 /**
  *  @brief Get a copy of the provided free energy parameters

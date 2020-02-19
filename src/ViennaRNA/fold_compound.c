@@ -183,6 +183,166 @@ vrna_fold_compound_free(vrna_fold_compound_t *fc)
   }
 }
 
+PUBLIC void
+vrna_fold_compound_free_param(vrna_fold_compound_t *fc)
+{
+  int s;
+
+  if (fc) {
+    /* first destroy common attributes */
+    vrna_mx_mfe_free(fc);
+    vrna_mx_pf_free(fc);
+    free(fc->iindx);
+    free(fc->jindx);
+    // HACK free(fc->params);
+    free(fc->exp_params);
+
+    vrna_hc_free(fc->hc);
+    vrna_ud_remove(fc);
+    vrna_sequence_remove_all(fc);
+
+    /* now distinguish the fc type */
+    switch (fc->type) {
+      case VRNA_FC_TYPE_SINGLE:
+        free(fc->sequence);
+        free(fc->sequence_encoding);
+        free(fc->sequence_encoding2);
+        free(fc->ptype);
+        free(fc->ptype_pf_compat);
+        vrna_sc_free(fc->sc);
+        break;
+      case VRNA_FC_TYPE_COMPARATIVE:
+        for (s = 0; s < fc->n_seq; s++) {
+          free(fc->sequences[s]);
+          free(fc->S[s]);
+          free(fc->S5[s]);
+          free(fc->S3[s]);
+          free(fc->Ss[s]);
+          free(fc->a2s[s]);
+        }
+        free(fc->sequences);
+        free(fc->cons_seq);
+        free(fc->S_cons);
+        free(fc->S);
+        free(fc->S5);
+        free(fc->S3);
+        free(fc->Ss);
+        free(fc->a2s);
+        free(fc->pscore);
+        free(fc->pscore_pf_compat);
+        if (fc->scs) {
+          for (s = 0; s < fc->n_seq; s++)
+            vrna_sc_free(fc->scs[s]);
+          free(fc->scs);
+        }
+
+        break;
+      default:                      /* do nothing */
+        break;
+    }
+
+    /* free Distance Class Partitioning stuff (should be NULL if not used) */
+    free(fc->reference_pt1);
+    free(fc->reference_pt2);
+    free(fc->referenceBPs1);
+    free(fc->referenceBPs2);
+    free(fc->bpdist);
+    free(fc->mm1);
+    free(fc->mm2);
+
+    /* free local folding related stuff (should be NULL if not used) */
+    free(fc->ptype_local);
+    free(fc->pscore_local);
+
+    if (fc->free_auxdata)
+      fc->free_auxdata(fc->auxdata);
+
+    free(fc);
+  }
+}
+
+
+PUBLIC vrna_fold_compound_t *
+vrna_fold_compound_param(const char    *sequence,
+                         vrna_md_t     *md_p,
+                         vrna_param_t  *params,
+                         unsigned int  options)
+{
+  unsigned int          length, aux_options;
+  vrna_fold_compound_t  *fc;
+  vrna_md_t             md;
+
+  if (sequence == NULL)
+    return NULL;
+
+  /* sanity check */
+  length = strlen(sequence);
+  if (length == 0) {
+    vrna_message_warning("vrna_fold_compound@data_structures.c: "
+                         "sequence length must be greater 0");
+    return NULL;
+  }
+
+  if (length > vrna_sequence_length_max(options)) {
+    vrna_message_warning("vrna_fold_compound@data_structures.c: "
+                         "sequence length of %d exceeds addressable range",
+                         length);
+    return NULL;
+  }
+
+  fc = init_fc_single();
+
+  fc->length    = length;
+  fc->sequence  = strdup(sequence);
+
+  aux_options = 0L;
+
+
+  /* get a copy of the model details */
+  if (md_p)
+    md = *md_p;
+  else
+    vrna_md_set_default(&md);
+
+  /************  HACK  ****************/
+  fc->params = params;
+
+  vrna_params_prepare(fc, options);
+  /************  END HACK  ****************/
+
+  sanitize_bp_span(fc, options);
+
+  if (options & VRNA_OPTION_WINDOW) {
+    set_fold_compound(fc, options, aux_options);
+
+    if (!(options & VRNA_OPTION_EVAL_ONLY)) {
+      /* add minimal hard constraint data structure */
+      vrna_hc_init_window(fc);
+
+      /* add DP matrices */
+      vrna_mx_add(fc, VRNA_MX_WINDOW, options);
+    }
+  } else {
+    /* regular global structure prediction */
+    aux_options |= WITH_PTYPE;
+
+    if (options & VRNA_OPTION_PF)
+      aux_options |= WITH_PTYPE_COMPAT;
+
+    set_fold_compound(fc, options, aux_options);
+
+    if (!(options & VRNA_OPTION_EVAL_ONLY)) {
+      /* add default hard constraints */
+      vrna_hc_init(fc);
+
+      /* add DP matrices (if required) */
+      vrna_mx_add(fc, VRNA_MX_DEFAULT, options);
+    }
+  }
+
+  return fc;
+}
+
 
 PUBLIC vrna_fold_compound_t *
 vrna_fold_compound(const char   *sequence,

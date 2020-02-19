@@ -424,6 +424,12 @@ vrna_fold_compound(const char   *sequence,
                    vrna_md_t    *md_p,
                    unsigned int options);
 
+ vrna_fold_compound_t *
+ vrna_fold_compound_param(const char    *sequence,
+                          vrna_md_t     *md_p,
+                          vrna_param_t  *params,
+                          unsigned int  options);
+
 
 /**
  *  @brief  Retrieve a #vrna_fold_compound_t data structure for sequence alignments
@@ -500,6 +506,9 @@ vrna_fold_compound_prepare(vrna_fold_compound_t *fc,
  */
 void
 vrna_fold_compound_free(vrna_fold_compound_t *fc);
+
+void
+vrna_fold_compound_free_param(vrna_fold_compound_t *fc);
 
 
 /**

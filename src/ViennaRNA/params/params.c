@@ -138,6 +138,12 @@ vrna_params(vrna_md_t *md)
   }
 }
 
+PUBLIC void
+vrna_params_free(vrna_param_t *param)
+{
+  free(param);
+}
+
 
 PUBLIC vrna_exp_param_t *
 vrna_exp_params(vrna_md_t *md)
